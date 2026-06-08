@@ -6,7 +6,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="theme-color" content="#2F8000">
-  <title>Daily To-Do</title>
+  <title>Իմ Առաջադրանքները</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -208,7 +208,7 @@
 
     @media (min-width: 768px) {
       .task-row {
-        display: grid; grid-template-columns: 36px 1fr 130px 95px 44px;
+        display: grid; grid-template-columns: 36px 1fr 130px 95px auto;
         gap: 8px; align-items: center; padding: 10px 16px;
       }
       .t-meta { display: none; }
@@ -234,6 +234,9 @@
     }
     .icon-btn.del:hover     { background: var(--red-bg);   color: var(--red);   }
     .icon-btn.restore:hover { background: var(--accent-bg); color: var(--accent); }
+    .icon-btn.edit:hover    { background: var(--accent-bg); color: var(--accent); }
+    .icon-btn.backlog:hover { background: var(--surface2);  color: var(--text);   }
+    .badge-backlog { background: var(--surface2); color: var(--text-sec); }
 
     /* ── Empty states ── */
     .empty { display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 60px 20px; gap: 10px; color: var(--text-muted); text-align: center; }
@@ -245,7 +248,7 @@
     .pane { display: none; }
     .pane.active { display: block; }
     @media (max-width: 767px) {
-      #pane-todo, #pane-done { padding-bottom: 88px; }
+      #pane-todo, #pane-done, #pane-upcoming, #pane-backlog { padding-bottom: 88px; }
     }
 
     /* ── Done tab ── */
@@ -347,6 +350,15 @@
     }
     .sync-dot.syncing { opacity: 1; animation: pulse 1s infinite; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+
+    /* ── Language toggle ── */
+    .lang-btn {
+      padding: 6px 11px; min-height: 44px; border-radius: var(--rpill);
+      border: 1px solid var(--border); background: var(--surface);
+      color: var(--text-sec); font-size: 12px; font-weight: 700;
+      cursor: pointer; letter-spacing: .04em; transition: all .15s;
+    }
+    .lang-btn:hover { background: var(--surface2); color: var(--text); }
   </style>
 </head>
 <body>
@@ -362,65 +374,104 @@
           </div>
           <button class="nav-btn" id="btn-next" aria-label="Next day"><i class="ti ti-chevron-right"></i></button>
         </div>
-        <button class="today-btn" id="btn-today">Today</button>
+        <button class="today-btn" id="btn-today">Այսօր</button>
+        <button class="lang-btn" id="lang-toggle">EN</button>
       </div>
     </header>
     <div class="tab-bar" id="tab-bar">
-      <button class="tab active" data-tab="todo" id="tab-todo">To Do <span class="tab-count" id="cnt-todo">0</span></button>
-      <button class="tab"        data-tab="done" id="tab-done">Done  <span class="tab-count" id="cnt-done">0</span></button>
+      <button class="tab active" data-tab="todo"     id="tab-todo"><span id="txt-tab-todo">Կատարելու</span> <span class="tab-count" id="cnt-todo">0</span></button>
+      <button class="tab"        data-tab="done"     id="tab-done"><span id="txt-tab-done">Կատարված</span> <span class="tab-count" id="cnt-done">0</span></button>
+      <button class="tab"        data-tab="upcoming" id="tab-upcoming"><span id="txt-tab-upcoming">Առաջիկա</span> <span class="tab-count" id="cnt-upcoming">0</span></button>
+      <button class="tab"        data-tab="backlog"  id="tab-backlog"><span id="txt-tab-backlog">Հետաձgված</span> <span class="tab-count" id="cnt-backlog">0</span></button>
       <div class="tab-ink" id="tab-ink"></div>
     </div>
   </div>
 
   <div class="stats-bar">
-    <span class="stat"><i class="ti ti-clock"></i>&nbsp;<span class="stat-val" id="stat-rem">0</span>&nbsp;remaining today</span>
-    <span class="stat"><i class="ti ti-circle-check"></i>&nbsp;<span class="stat-val" id="stat-done">0</span>&nbsp;completed today</span>
+    <span class="stat"><i class="ti ti-clock"></i>&nbsp;<span class="stat-val" id="stat-rem">0</span>&nbsp;<span id="txt-remaining">մնացել է այսօր</span></span>
+    <span class="stat"><i class="ti ti-circle-check"></i>&nbsp;<span class="stat-val" id="stat-done">0</span>&nbsp;<span id="txt-completed">կատարված այսօր</span></span>
   </div>
 
   <!-- To Do pane -->
   <div class="pane active" id="pane-todo">
     <div class="desktop-add">
       <form class="d-form" id="form-desktop">
-        <input type="text"  id="d-name" class="f-input f-name" placeholder="Add a new task…" required>
-        <input type="date"  id="d-date" class="f-input f-date">
-        <select             id="d-prio" class="f-input f-prio">
-          <option value="Medium">Medium</option>
-          <option value="High">High</option>
-          <option value="Low">Low</option>
+        <input type="text"  id="d-name"  class="f-input f-name" placeholder="Ավելացնել նոր առաջադրանք…" required>
+        <input type="date"  id="d-start" class="f-input f-date" title="Start date">
+        <input type="date"  id="d-date"  class="f-input f-date">
+        <select             id="d-prio"  class="f-input f-prio">
+          <option value="Medium">Միջին</option>
+          <option value="High">Բարձր</option>
+          <option value="Low">Ցածր</option>
         </select>
-        <button type="submit" class="btn-add-d"><i class="ti ti-plus"></i> Add</button>
+        <button type="submit" class="btn-add-d"><i class="ti ti-plus"></i> Ավելացնել</button>
       </form>
     </div>
     <div class="filter-bar" id="filter-todo">
-      <button class="filter-btn active" data-f="All">All</button>
-      <button class="filter-btn" data-f="High">High</button>
-      <button class="filter-btn" data-f="Medium">Medium</button>
-      <button class="filter-btn" data-f="Low">Low</button>
-      <button class="filter-btn" data-f="Overdue">Overdue</button>
+      <button class="filter-btn active" data-f="All">Բոլորը</button>
+      <button class="filter-btn" data-f="High">Բարձր</button>
+      <button class="filter-btn" data-f="Medium">Միջին</button>
+      <button class="filter-btn" data-f="Low">Ցածր</button>
+      <button class="filter-btn" data-f="Overdue">Ժամկետանց</button>
     </div>
     <div class="col-headers">
-      <div></div><div>Task</div><div>Deadline</div><div>Priority</div><div></div>
+      <div></div><div>Առաջադրանք</div><div>Վերջնաժամկետ</div><div>Առաջնահերթություն</div><div></div>
     </div>
     <ul class="task-list" id="list-todo"></ul>
     <div class="empty" id="empty-todo" style="display:none">
-      <i class="ti ti-circle-check"></i><p>You're all caught up!</p><span>No tasks for this day</span>
+      <i class="ti ti-circle-check"></i><p>Ամեն ինչ կատարված է!</p><span>Այս օրվա համար առաջադրանքներ չկան</span>
     </div>
   </div>
 
   <!-- Done pane -->
   <div class="pane" id="pane-done">
     <div class="filter-bar" id="filter-done">
-      <button class="filter-btn active" data-f="All">All</button>
-      <button class="filter-btn" data-f="High">High</button>
-      <button class="filter-btn" data-f="Medium">Medium</button>
-      <button class="filter-btn" data-f="Low">Low</button>
+      <button class="filter-btn active" data-f="All">Բոլորը</button>
+      <button class="filter-btn" data-f="High">Բարձր</button>
+      <button class="filter-btn" data-f="Medium">Միջին</button>
+      <button class="filter-btn" data-f="Low">Ցածր</button>
     </div>
     <div class="done-col-hdrs">
-      <div>Task</div><div>Deadline</div><div>Priority</div><div>Completed</div><div></div>
+      <div>Առաջադրանք</div><div>Վերջնաժամկետ</div><div>Առաջնահերթություն</div><div>Կատարված</div><div></div>
     </div>
     <div id="list-done"></div>
     <div class="empty" id="empty-done" style="display:none">
-      <i class="ti ti-checks"></i><p>No completed tasks yet</p><span>Check off tasks to see them here</span>
+      <i class="ti ti-checks"></i><p>Դեռ կատարված առաջադրանքներ չկան</p><span>Նշեք առաջադրանքները՝ տեսնելու համար</span>
+    </div>
+  </div>
+  </div>
+
+  <!-- Upcoming pane -->
+  <div class="pane" id="pane-upcoming">
+    <div class="col-headers" id="upcoming-col-headers">
+      <div></div>
+      <div id="txt-up-task">Առաջադրանք</div>
+      <div id="txt-up-start">Մեկնարկ</div>
+      <div id="txt-up-prio">Առաջնահերթություն</div>
+      <div></div>
+    </div>
+    <ul class="task-list" id="list-upcoming"></ul>
+    <div class="empty" id="empty-upcoming" style="display:none">
+      <i class="ti ti-calendar-time"></i>
+      <p id="txt-empty-upcoming-title">Առաջիկա առաջադրանքներ չկան</p>
+      <span id="txt-empty-upcoming-sub">Ապագա մեկնարկ ամսաթվով առաջադրանքները կհայտնվեն այստեղ</span>
+    </div>
+  </div>
+
+  <!-- Backlog pane -->
+  <div class="pane" id="pane-backlog">
+    <div class="col-headers">
+      <div></div>
+      <div id="txt-bl-task">Առաջադրանք</div>
+      <div id="txt-bl-deadline">Վերջնաժամկետ</div>
+      <div id="txt-bl-prio">Առաջնահերթություն</div>
+      <div></div>
+    </div>
+    <ul class="task-list" id="list-backlog"></ul>
+    <div class="empty" id="empty-backlog" style="display:none">
+      <i class="ti ti-archive"></i>
+      <p id="txt-empty-backlog-title">Հետաձgված առաջադրանքներ չկան</p>
+      <span id="txt-empty-backlog-sub">Արխիվացված առաջադրանքները կհայտնվեն այստեղ</span>
     </div>
   </div>
 </div>
@@ -432,29 +483,35 @@
   <div class="modal-sheet">
     <div class="drag-handle"></div>
     <div class="modal-hdr">
-      <span class="modal-title">New Task</span>
-      <button class="modal-close" id="modal-close" aria-label="Close"><i class="ti ti-x"></i></button>
+      <span class="modal-title">Նոր Առաջադրանք</span>
+      <button class="modal-close" id="modal-close" aria-label="Փակել"><i class="ti ti-x"></i></button>
     </div>
     <form class="m-form" id="form-mobile">
       <div class="form-group">
-        <label class="form-label" for="m-name">Task name</label>
-        <input type="text" id="m-name" class="f-input f-full" placeholder="What needs to be done?" required>
+        <label class="form-label" for="m-name">Անվանում</label>
+        <input type="text" id="m-name" class="f-input f-full" placeholder="Ի՞նչ պետք է կատարել" required>
       </div>
       <div class="form-row">
         <div class="form-group">
-          <label class="form-label" for="m-date">Deadline</label>
-          <input type="date" id="m-date" class="f-input f-full">
+          <label class="form-label" for="m-start" id="lbl-m-start">Մեկնարկ</label>
+          <input type="date" id="m-start" class="f-input f-full">
         </div>
         <div class="form-group">
-          <label class="form-label" for="m-prio">Priority</label>
+          <label class="form-label" for="m-date">Վերջնաժամկետ</label>
+          <input type="date" id="m-date" class="f-input f-full">
+        </div>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="grid-column:1/-1">
+          <label class="form-label" for="m-prio">Առաջնահերթություն</label>
           <select id="m-prio" class="f-input f-full">
-            <option value="Medium">Medium</option>
-            <option value="High">High</option>
-            <option value="Low">Low</option>
+            <option value="Medium">Միջին</option>
+            <option value="High">Բարձր</option>
+            <option value="Low">Ցածր</option>
           </select>
         </div>
       </div>
-      <button type="submit" class="btn-add-m">Add Task</button>
+      <button type="submit" class="btn-add-m">Ավելացնել</button>
     </form>
   </div>
 </div>
@@ -491,6 +548,111 @@ function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>
 const PORD = {High:0,Medium:1,Low:2};
 const BCLASS = {High:'badge-h',Medium:'badge-m',Low:'badge-l'};
 
+const STRINGS = {
+  en: {
+    today:'Today', tabTodo:'To Do', tabDone:'Done',
+    remaining:'remaining today', completed:'completed today',
+    addPlaceholder:'Add a new task…', add:'Add', addTask:'Add Task',
+    all:'All', high:'High', medium:'Medium', low:'Low', overdue:'Overdue',
+    colTask:'Task', colDeadline:'Deadline', colPriority:'Priority', colCompleted:'Completed',
+    emptyTodoTitle:"You're all caught up!", emptyTodoSub:'No tasks for this day',
+    emptyDoneTitle:'No completed tasks yet', emptyDoneSub:'Check off tasks to see them here',
+    modalTitle:'New Task', labelName:'Task name', labelDeadline:'Deadline',
+    labelPriority:'Priority', namePlaceholder:'What needs to be done?',
+    carried:'↩ carried', High:'High', Medium:'Medium', Low:'Low',
+    labelStartDate:'Start date', labelStartShort:'from',
+    tabUpcoming:'Upcoming',
+    emptyUpcomingTitle:'No upcoming tasks',
+    emptyUpcomingSub:'Tasks with a future start date will appear here',
+    editModalTitle:'Edit Task', editSave:'Save',
+    backlog:'Backlog', moveToBacklog:'Move to backlog', restoreToToday:'Restore to today',
+    tabBacklog:'Backlog',
+    emptyBacklogTitle:'No backlog tasks', emptyBacklogSub:'Archived tasks will appear here',
+    syncFail:'Sync failed', noSupabase:'Could not reach Supabase — using local data',
+  },
+  am: {
+    today:'Այսօր', tabTodo:'Կատարելու', tabDone:'Կատարված',
+    remaining:'մնացել է այսօր', completed:'կատարված այսօր',
+    addPlaceholder:'Ավելացնել նոր առաջադրանք…', add:'Ավելացնել', addTask:'Ավելացնել',
+    all:'Բոլորը', high:'Բարձր', medium:'Միջին', low:'Ցածր', overdue:'Ժամկետանց',
+    colTask:'Առաջադրանք', colDeadline:'Վերջնաժամկետ', colPriority:'Առաջնահերթություն', colCompleted:'Կատարված',
+    emptyTodoTitle:'Ամեն ինչ կատարված է!', emptyTodoSub:'Այս օրվա համար առաջադրանքներ չկան',
+    emptyDoneTitle:'Դեռ կատարված առաջադրանքներ չկան', emptyDoneSub:'Նշեք առաջադրանքները՝ տեսնելու համար',
+    modalTitle:'Նոր Առաջադրանք', labelName:'Անվանում', labelDeadline:'Վերջնաժամկետ',
+    labelPriority:'Առաջնահերթություն', namePlaceholder:'Ի՞նչ պետք է կատարել',
+    carried:'↩ տեղափոխված', High:'Բարձր', Medium:'Միջին', Low:'Ցածր',
+    labelStartDate:'Մեկնարկ', labelStartShort:'սկսած',
+    tabUpcoming:'Առաջիկա',
+    emptyUpcomingTitle:'Առաջիկա առաջադրանքներ չկան',
+    emptyUpcomingSub:'Ապագա մեկնարկ ամսաթվով առաջադրանքները կհայտնվեն այստեղ',
+    editModalTitle:'Խմբագրել', editSave:'Պահել',
+    backlog:'Հետաձգված', moveToBacklog:'Հետաձgել', restoreToToday:'Վերադարձնել այսօր',
+    tabBacklog:'Հետաձgված',
+    emptyBacklogTitle:'Հետաձgված առաջադրանքներ չկան', emptyBacklogSub:'Արխիվացված առաջադրանքները կհայտնվեն այստեղ',
+    syncFail:'Համաժամացումը ձախողվեց', noSupabase:'Supabase-ին հնարավոր չէ հասնել',
+  }
+};
+
+let lang = localStorage.getItem('dtodo_lang') || 'am';
+
+function s() { return STRINGS[lang]; }
+
+function applyLang() {
+  const t = s();
+  document.getElementById('lang-toggle').textContent = lang === 'am' ? 'EN' : 'ՀԱՅ';
+  document.getElementById('btn-today').textContent = t.today;
+  document.getElementById('txt-tab-todo').textContent = t.tabTodo;
+  document.getElementById('txt-tab-done').textContent = t.tabDone;
+  document.getElementById('txt-remaining').textContent = t.remaining;
+  document.getElementById('txt-completed').textContent = t.completed;
+  document.getElementById('d-name').placeholder = t.addPlaceholder;
+  document.getElementById('d-start').title = t.labelStartDate;
+  document.getElementById('lbl-m-start').textContent = t.labelStartDate;
+  document.querySelector('#d-prio option[value="High"]').textContent   = t.high;
+  document.querySelector('#d-prio option[value="Medium"]').textContent = t.medium;
+  document.querySelector('#d-prio option[value="Low"]').textContent    = t.low;
+  document.querySelector('.btn-add-d').innerHTML = `<i class="ti ti-plus"></i> ${t.add}`;
+  document.querySelector('#filter-todo [data-f="All"]').textContent     = t.all;
+  document.querySelector('#filter-todo [data-f="High"]').textContent    = t.high;
+  document.querySelector('#filter-todo [data-f="Medium"]').textContent  = t.medium;
+  document.querySelector('#filter-todo [data-f="Low"]').textContent     = t.low;
+  document.querySelector('#filter-todo [data-f="Overdue"]').textContent = t.overdue;
+  document.querySelector('#filter-done [data-f="All"]').textContent     = t.all;
+  document.querySelector('#filter-done [data-f="High"]').textContent    = t.high;
+  document.querySelector('#filter-done [data-f="Medium"]').textContent  = t.medium;
+  document.querySelector('#filter-done [data-f="Low"]').textContent     = t.low;
+  const ch = document.querySelectorAll('.col-headers div');
+  ch[1].textContent = t.colTask; ch[2].textContent = t.colDeadline; ch[3].textContent = t.colPriority;
+  document.querySelector('#empty-todo p').textContent    = t.emptyTodoTitle;
+  document.querySelector('#empty-todo span').textContent = t.emptyTodoSub;
+  const dh = document.querySelectorAll('.done-col-hdrs div');
+  dh[0].textContent = t.colTask; dh[1].textContent = t.colDeadline;
+  dh[2].textContent = t.colPriority; dh[3].textContent = t.colCompleted;
+  document.querySelector('#empty-done p').textContent    = t.emptyDoneTitle;
+  document.querySelector('#empty-done span').textContent = t.emptyDoneSub;
+  document.querySelector('.modal-title').textContent              = t.modalTitle;
+  document.querySelector('label[for="m-name"]').textContent       = t.labelName;
+  document.getElementById('m-name').placeholder                   = t.namePlaceholder;
+  document.querySelector('label[for="m-date"]').textContent       = t.labelDeadline;
+  document.querySelector('label[for="m-prio"]').textContent       = t.labelPriority;
+  document.querySelector('#m-prio option[value="High"]').textContent   = t.high;
+  document.querySelector('#m-prio option[value="Medium"]').textContent = t.medium;
+  document.querySelector('#m-prio option[value="Low"]').textContent    = t.low;
+  if (!editingId) document.querySelector('.btn-add-m').textContent = t.addTask;
+  document.getElementById('txt-tab-upcoming').textContent        = t.tabUpcoming;
+  document.getElementById('txt-empty-upcoming-title').textContent = t.emptyUpcomingTitle;
+  document.getElementById('txt-empty-upcoming-sub').textContent   = t.emptyUpcomingSub;
+  document.getElementById('txt-up-task').textContent  = t.colTask;
+  document.getElementById('txt-up-start').textContent = t.labelStartDate;
+  document.getElementById('txt-up-prio').textContent  = t.colPriority;
+  document.getElementById('txt-tab-backlog').textContent          = t.tabBacklog;
+  document.getElementById('txt-empty-backlog-title').textContent  = t.emptyBacklogTitle;
+  document.getElementById('txt-empty-backlog-sub').textContent    = t.emptyBacklogSub;
+  document.getElementById('txt-bl-task').textContent     = t.colTask;
+  document.getElementById('txt-bl-deadline').textContent = t.colDeadline;
+  document.getElementById('txt-bl-prio').textContent     = t.colPriority;
+}
+
 // ── Config — paste your Supabase project values here ─────────────────────────
 const SUPABASE_URL = 'https://czpekwoawvozxwaykmsr.supabase.co';
 const SUPABASE_KEY = 'sb_publishable_g-ovr6qmZVXk7ukKH28zhg_WFSNJACh';
@@ -505,17 +667,20 @@ let selDate = todayStr();
 let activeTab = 'todo';
 let fTodo = 'All', fDone = 'All';
 let restoredId = null;
+let editingId = null;
 
 // ── Row mappers (camelCase JS <-> snake_case DB) ───────────────────────────────
 function toRow(t) {
   return { id:t.id, name:t.name, deadline:t.deadline||null, priority:t.priority,
     completed:t.completed, completed_at:t.completedAt||null,
-    created_at:t.createdAt, created_day:t.createdDay };
+    created_at:t.createdAt, created_day:t.createdDay,
+    start_date:t.startDate||null, backlog:t.backlog||false };
 }
 function fromRow(r) {
   return { id:r.id, name:r.name, deadline:r.deadline||'', priority:r.priority,
     completed:r.completed, completedAt:r.completed_at||null,
-    createdAt:r.created_at, createdDay:r.created_day };
+    createdAt:r.created_at, createdDay:r.created_day,
+    startDate:r.start_date||'', backlog:r.backlog||false };
 }
 
 // ── Toast ─────────────────────────────────────────────────────────────────────
@@ -532,7 +697,7 @@ function loadLocal() { try { tasks = JSON.parse(localStorage.getItem(SKEY)||'[]'
 async function load() {
   if (USE_SB) {
     const { data, error } = await sb.from('tasks').select('*');
-    if (error) { showToast('Could not reach Supabase — using local data'); loadLocal(); return; }
+    if (error) { showToast(s().noSupabase); loadLocal(); return; }
     tasks = (data||[]).map(fromRow);
   } else {
     loadLocal();
@@ -540,14 +705,14 @@ async function load() {
 }
 
 // ── CRUD ──────────────────────────────────────────────────────────────────────
-function addTask(name, deadline, priority) {
-  const task = { id:uid(), name:name.trim(), deadline, priority,
+function addTask(name, startDate, deadline, priority) {
+  const task = { id:uid(), name:name.trim(), startDate, deadline, priority,
     completed:false, completedAt:null,
     createdAt:new Date().toISOString(), createdDay:selDate };
   tasks.push(task);
   saveLocal(); render();
   if (USE_SB) sb.from('tasks').insert(toRow(task))
-    .then(({error}) => { if (error) showToast('Sync failed: ' + error.message); });
+    .then(({error}) => { if (error) showToast(s().syncFail + ': ' + error.message); });
 }
 
 function completeTask(id) {
@@ -556,7 +721,7 @@ function completeTask(id) {
   t.completed=true; t.completedAt=new Date().toISOString();
   saveLocal();
   if (USE_SB) sb.from('tasks').update({completed:true, completed_at:t.completedAt}).eq('id',id)
-    .then(({error}) => { if (error) showToast('Sync failed'); });
+    .then(({error}) => { if (error) showToast(s().syncFail); });
 }
 
 function restoreTask(id) {
@@ -565,14 +730,33 @@ function restoreTask(id) {
   t.completed=false; t.completedAt=null; t.createdDay=todayStr();
   restoredId=id; saveLocal();
   if (USE_SB) sb.from('tasks').update({completed:false, completed_at:null, created_day:t.createdDay}).eq('id',id)
-    .then(({error}) => { if (error) showToast('Sync failed'); });
+    .then(({error}) => { if (error) showToast(s().syncFail); });
 }
 
 function deleteTask(id) {
   tasks=tasks.filter(t=>t.id!==id);
   saveLocal(); render();
   if (USE_SB) sb.from('tasks').delete().eq('id',id)
-    .then(({error}) => { if (error) showToast('Sync failed'); });
+    .then(({error}) => { if (error) showToast(s().syncFail); });
+}
+
+function setBacklog(id, val) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  t.backlog = val;
+  saveLocal(); render();
+  if (USE_SB) sb.from('tasks').update({ backlog: val }).eq('id', id)
+    .then(({error}) => { if (error) showToast(s().syncFail); });
+}
+
+function updateTask(id, name, startDate, deadline, priority) {
+  const t = tasks.find(t => t.id === id);
+  if (!t) return;
+  t.name = name.trim(); t.startDate = startDate; t.deadline = deadline; t.priority = priority;
+  saveLocal(); render();
+  if (USE_SB) sb.from('tasks').update({
+    name: t.name, start_date: startDate||null, deadline: deadline||null, priority
+  }).eq('id', id).then(({error}) => { if (error) showToast(s().syncFail); });
 }
 
 // ── Queries ───────────────────────────────────────────────────────────────────
@@ -580,6 +764,9 @@ function getTodoTasks() {
   const today = todayStr();
   return tasks.filter(t => {
     if (t.completed) return false;
+    if (t.backlog) return false;
+    // Hide if start date is in the future relative to selected day
+    if (t.startDate && t.startDate > selDate) return false;
     if (t.createdDay === selDate) return true;
     if (selDate === today && t.createdDay < today) return true;
     return false;
@@ -603,6 +790,21 @@ function getDoneTasks() {
   return list;
 }
 
+function getUpcomingTasks() {
+  const today = todayStr();
+  return tasks.filter(t => !t.completed && !t.backlog && t.startDate && t.startDate > today)
+    .sort((a, b) => {
+      if (a.startDate < b.startDate) return -1;
+      if (a.startDate > b.startDate) return 1;
+      return (PORD[a.priority]??1) - (PORD[b.priority]??1);
+    });
+}
+
+function getBacklogTasks() {
+  return tasks.filter(t => !t.completed && t.backlog)
+    .sort((a, b) => (PORD[a.priority]??1) - (PORD[b.priority]??1));
+}
+
 function groupDone(list) {
   const g = {};
   list.forEach(t => {
@@ -624,7 +826,7 @@ function todayStats() {
 }
 
 // ── HTML builders ─────────────────────────────────────────────────────────────
-function badge(p) { return `<span class="badge ${BCLASS[p]||'badge-m'}">${esc(p)}</span>`; }
+function badge(p) { return `<span class="badge ${BCLASS[p]||'badge-m'}">${esc(s()[p]||p)}</span>`; }
 
 function todoItemHtml(t) {
   const today = todayStr();
@@ -645,9 +847,10 @@ function todoItemHtml(t) {
     <div class="task-main">
       <div class="t-name-line">
         <span class="t-name">${esc(t.name)}</span>
-        ${carried ? '<span class="t-carried">↩ carried</span>' : ''}
+        ${carried ? `<span class="t-carried">${s().carried}</span>` : ''}
       </div>
       <div class="t-meta">
+        ${t.startDate ? `<span class="t-dl" style="color:var(--text-muted);font-size:11px">${s().labelStartShort} ${fmtShort(t.startDate)}</span>` : ''}
         <span class="t-dl ${dlCls}">${dlTxt}</span>
         ${badge(t.priority)}
       </div>
@@ -655,7 +858,9 @@ function todoItemHtml(t) {
     <div class="t-cell-dl"><span class="t-dl ${dlCls}">${dlTxt}</span></div>
     <div class="t-cell-prio">${badge(t.priority)}</div>
     <div class="t-actions">
-      <button class="icon-btn del" data-action="delete" data-id="${esc(t.id)}" aria-label="Delete"><i class="ti ti-trash"></i></button>
+      <button class="icon-btn backlog" data-action="backlog" data-id="${esc(t.id)}" title="${esc(s().moveToBacklog)}" aria-label="Backlog"><i class="ti ti-archive"></i></button>
+      <button class="icon-btn edit"    data-action="edit"    data-id="${esc(t.id)}" aria-label="Edit"><i class="ti ti-pencil"></i></button>
+      <button class="icon-btn del"     data-action="delete"  data-id="${esc(t.id)}" aria-label="Delete"><i class="ti ti-trash"></i></button>
     </div>
   </li>`;
 }
@@ -680,6 +885,61 @@ function doneItemHtml(t) {
       <button class="icon-btn del"     data-action="delete"  data-id="${esc(t.id)}" aria-label="Delete"><i class="ti ti-trash"></i></button>
     </div>
   </div>`;
+}
+
+function upcomingItemHtml(t) {
+  const today    = todayStr();
+  const overdue  = t.deadline && t.deadline < today;
+  const dlCls    = overdue ? 'overdue' : '';
+  const dlTxt    = t.deadline ? fmtShort(t.deadline) : '–';
+  const startTxt = t.startDate ? fmtShort(t.startDate) : '–';
+  return `<li class="task-row" data-id="${esc(t.id)}">
+    <label class="cb-wrap">
+      <input type="checkbox" data-action="complete" data-id="${esc(t.id)}">
+      <span class="cb-box"></span>
+    </label>
+    <div class="task-main">
+      <div class="t-name-line"><span class="t-name">${esc(t.name)}</span></div>
+      <div class="t-meta">
+        <span class="t-dl" style="color:var(--accent);font-weight:600">${s().labelStartDate}: ${startTxt}</span>
+        ${t.deadline ? `<span class="t-dl ${dlCls}">${dlTxt}</span>` : ''}
+        ${badge(t.priority)}
+      </div>
+    </div>
+    <div class="t-cell-dl"><span style="color:var(--accent);font-weight:600;font-size:13px">${startTxt}</span></div>
+    <div class="t-cell-prio">${badge(t.priority)}</div>
+    <div class="t-actions">
+      <button class="icon-btn edit" data-action="edit"   data-id="${esc(t.id)}" aria-label="Edit"><i class="ti ti-pencil"></i></button>
+      <button class="icon-btn del"  data-action="delete" data-id="${esc(t.id)}" aria-label="Delete"><i class="ti ti-trash"></i></button>
+    </div>
+  </li>`;
+}
+
+function backlogItemHtml(t) {
+  const today  = todayStr();
+  const overdue = t.deadline && t.deadline < today;
+  const dlCls   = overdue ? 'overdue' : '';
+  const dlTxt   = t.deadline ? fmtShort(t.deadline) : '–';
+  return `<li class="task-row" data-id="${esc(t.id)}">
+    <label class="cb-wrap">
+      <input type="checkbox" data-action="complete" data-id="${esc(t.id)}">
+      <span class="cb-box"></span>
+    </label>
+    <div class="task-main">
+      <div class="t-name-line"><span class="t-name">${esc(t.name)}</span></div>
+      <div class="t-meta">
+        ${t.deadline ? `<span class="t-dl ${dlCls}">${dlTxt}</span>` : ''}
+        ${badge(t.priority)}
+      </div>
+    </div>
+    <div class="t-cell-dl"><span class="t-dl ${dlCls}">${dlTxt}</span></div>
+    <div class="t-cell-prio">${badge(t.priority)}</div>
+    <div class="t-actions">
+      <button class="icon-btn restore" data-action="unbacklog" data-id="${esc(t.id)}" title="${esc(s().restoreToToday)}" aria-label="Restore to today"><i class="ti ti-arrow-back-up"></i></button>
+      <button class="icon-btn edit"    data-action="edit"      data-id="${esc(t.id)}" aria-label="Edit"><i class="ti ti-pencil"></i></button>
+      <button class="icon-btn del"     data-action="delete"    data-id="${esc(t.id)}" aria-label="Delete"><i class="ti ti-trash"></i></button>
+    </div>
+  </li>`;
 }
 
 // ── Render ────────────────────────────────────────────────────────────────────
@@ -713,9 +973,21 @@ function render() {
     document.getElementById('empty-done').style.display = 'flex';
   }
 
+  // Upcoming (future start-date tasks)
+  const upcomingTasks = getUpcomingTasks();
+  document.getElementById('list-upcoming').innerHTML = upcomingTasks.map(upcomingItemHtml).join('');
+  document.getElementById('empty-upcoming').style.display = upcomingTasks.length ? 'none' : 'flex';
+
+  // Backlog
+  const backlogTasks = getBacklogTasks();
+  document.getElementById('list-backlog').innerHTML = backlogTasks.map(backlogItemHtml).join('');
+  document.getElementById('empty-backlog').style.display = backlogTasks.length ? 'none' : 'flex';
+
   // Counts
-  document.getElementById('cnt-todo').textContent = filtered.length;
-  document.getElementById('cnt-done').textContent = doneTasks.length;
+  document.getElementById('cnt-todo').textContent     = filtered.length;
+  document.getElementById('cnt-done').textContent     = doneTasks.length;
+  document.getElementById('cnt-upcoming').textContent = upcomingTasks.length;
+  document.getElementById('cnt-backlog').textContent  = backlogTasks.length;
 
   // Stats
   const s = todayStats();
@@ -750,8 +1022,10 @@ document.getElementById('tab-bar').addEventListener('click', e => {
   if (!btn) return;
   activeTab = btn.dataset.tab;
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === activeTab));
-  document.getElementById('pane-todo').classList.toggle('active', activeTab === 'todo');
-  document.getElementById('pane-done').classList.toggle('active', activeTab === 'done');
+  document.getElementById('pane-todo').classList.toggle('active',     activeTab === 'todo');
+  document.getElementById('pane-done').classList.toggle('active',     activeTab === 'done');
+  document.getElementById('pane-upcoming').classList.toggle('active', activeTab === 'upcoming');
+  document.getElementById('pane-backlog').classList.toggle('active',  activeTab === 'backlog');
   const fab = document.getElementById('fab');
   fab.style.cssText = activeTab === 'done' ? 'display:none!important' : '';
   updateInk();
@@ -775,21 +1049,36 @@ document.getElementById('filter-done').addEventListener('click', e => {
   render();
 });
 
-// Todo list actions
-document.getElementById('list-todo').addEventListener('click', e => {
+function handleTodoAction(e) {
   const btn = e.target.closest('[data-action]');
   if (!btn) return;
   const { action, id } = btn.dataset;
-  if (action === 'delete') { deleteTask(id); render(); return; }
+  if (action === 'delete')   { deleteTask(id); render(); return; }
+  if (action === 'backlog')  { setBacklog(id, true);  return; }
+  if (action === 'unbacklog'){ setBacklog(id, false); return; }
+  if (action === 'edit') {
+    const t = tasks.find(t => t.id === id);
+    if (t) openModal(t);
+    return;
+  }
   if (action === 'complete') {
-    const row = document.querySelector(`.task-row[data-id="${CSS.escape(id)}"]`);
+    const row = e.currentTarget.querySelector(`.task-row[data-id="${CSS.escape(id)}"]`);
     if (!row || row.classList.contains('completing')) return;
     const cb = row.querySelector('input[type="checkbox"]');
     if (cb) cb.checked = true;
     row.classList.add('completing');
     row.addEventListener('animationend', () => { completeTask(id); render(); }, { once: true });
   }
-});
+}
+
+// Todo list actions
+document.getElementById('list-todo').addEventListener('click', handleTodoAction);
+
+// Upcoming list actions
+document.getElementById('list-upcoming').addEventListener('click', handleTodoAction);
+
+// Backlog list actions
+document.getElementById('list-backlog').addEventListener('click', handleTodoAction);
 
 // Done list actions
 document.getElementById('list-done').addEventListener('click', e => {
@@ -803,6 +1092,8 @@ document.getElementById('list-done').addEventListener('click', e => {
     document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === 'todo'));
     document.getElementById('pane-todo').classList.add('active');
     document.getElementById('pane-done').classList.remove('active');
+    document.getElementById('pane-upcoming').classList.remove('active');
+    document.getElementById('pane-backlog').classList.remove('active');
     document.getElementById('fab').style.cssText = '';
     render();
   }
@@ -813,8 +1104,9 @@ document.getElementById('form-desktop').addEventListener('submit', e => {
   e.preventDefault();
   const name = document.getElementById('d-name').value.trim();
   if (!name) return;
-  addTask(name, document.getElementById('d-date').value, document.getElementById('d-prio').value);
+  addTask(name, document.getElementById('d-start').value, document.getElementById('d-date').value, document.getElementById('d-prio').value);
   document.getElementById('d-name').value = '';
+  document.getElementById('d-start').value = '';
   document.getElementById('d-date').value = selDate;
   document.getElementById('d-prio').value = 'Medium';
   document.getElementById('d-name').focus();
@@ -822,14 +1114,30 @@ document.getElementById('form-desktop').addEventListener('submit', e => {
 
 // Mobile modal
 const modal = document.getElementById('modal');
-function openModal()  {
-  document.getElementById('m-name').value = '';
-  document.getElementById('m-date').value = selDate;
-  document.getElementById('m-prio').value = 'Medium';
+function openModal(task) {
+  editingId = task ? task.id : null;
+  document.getElementById('m-name').value  = task ? task.name           : '';
+  document.getElementById('m-start').value = task ? (task.startDate||'') : '';
+  document.getElementById('m-date').value  = task ? (task.deadline||'')  : selDate;
+  document.getElementById('m-prio').value  = task ? task.priority        : 'Medium';
+  document.querySelector('.modal-title').textContent  = editingId ? s().editModalTitle : s().modalTitle;
+  document.querySelector('.btn-add-m').textContent    = editingId ? s().editSave       : s().addTask;
   modal.classList.add('open');
   setTimeout(() => document.getElementById('m-name').focus(), 360);
 }
-function closeModal() { modal.classList.remove('open'); }
+function closeModal() {
+  editingId = null;
+  modal.classList.remove('open');
+  document.querySelector('.modal-title').textContent = s().modalTitle;
+  document.querySelector('.btn-add-m').textContent   = s().addTask;
+}
+
+document.getElementById('lang-toggle').addEventListener('click', () => {
+  lang = lang === 'am' ? 'en' : 'am';
+  localStorage.setItem('dtodo_lang', lang);
+  applyLang();
+  render();
+});
 
 document.getElementById('fab').addEventListener('click', openModal);
 document.getElementById('modal-close').addEventListener('click', closeModal);
@@ -838,9 +1146,16 @@ document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal()
 
 document.getElementById('form-mobile').addEventListener('submit', e => {
   e.preventDefault();
-  const name = document.getElementById('m-name').value.trim();
+  const name  = document.getElementById('m-name').value.trim();
   if (!name) return;
-  addTask(name, document.getElementById('m-date').value, document.getElementById('m-prio').value);
+  const start = document.getElementById('m-start').value;
+  const date  = document.getElementById('m-date').value;
+  const prio  = document.getElementById('m-prio').value;
+  if (editingId) {
+    updateTask(editingId, name, start, date, prio);
+  } else {
+    addTask(name, start, date, prio);
+  }
   closeModal();
 });
 
@@ -848,6 +1163,7 @@ document.getElementById('form-mobile').addEventListener('submit', e => {
 (async () => {
   setDefaultDates();
   await load();
+  applyLang();
   render();
   window.addEventListener('resize', updateInk);
 })();
