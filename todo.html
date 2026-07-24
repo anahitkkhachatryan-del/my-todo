@@ -121,6 +121,26 @@
     .filter-btn:hover { background: var(--surface2); }
     .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
+    /* ── Daily quiz card ── */
+    .quiz-card { margin: 12px 16px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--r); }
+    .quiz-title { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+    .quiz-fact { font-size: 13px; color: var(--text-sec); margin-bottom: 10px; line-height: 1.5; }
+    .quiz-question { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 10px; }
+    .quiz-choices { display: flex; flex-direction: column; gap: 8px; }
+    .quiz-choice {
+      text-align: left; padding: 10px 12px; min-height: 40px; border-radius: var(--rsm);
+      border: 1px solid var(--border); background: var(--bg); color: var(--text);
+      font-size: 13px; cursor: pointer; transition: all .15s;
+    }
+    .quiz-choice:hover:not(:disabled) { background: var(--surface2); }
+    .quiz-choice:disabled { cursor: default; }
+    .quiz-choice.correct { background: var(--green-bg); border-color: var(--accent); color: var(--accent-dk); font-weight: 600; }
+    .quiz-choice.incorrect { background: var(--red-bg); border-color: var(--red); color: var(--red); font-weight: 600; }
+    .quiz-feedback { margin-top: 10px; font-size: 13px; padding: 10px 12px; border-radius: var(--rsm); background: var(--surface2); color: var(--text-sec); line-height: 1.5; }
+    .quiz-feedback-title { font-weight: 700; margin-bottom: 4px; display: block; }
+    .quiz-feedback-title.ok { color: var(--accent); }
+    .quiz-feedback-title.no { color: var(--red); }
+
     /* ── Desktop add form ── */
     .desktop-add { display: none; padding: 12px 16px; background: var(--surface); border-bottom: 1px solid var(--border); }
     @media (min-width: 768px) { .desktop-add { display: block; } }
@@ -394,6 +414,16 @@
 
   <!-- To Do pane -->
   <div class="pane active" id="pane-todo">
+    <div class="quiz-card" id="quiz-card">
+      <div class="quiz-title"><span>🧠</span><span id="quiz-title-txt"></span></div>
+      <div class="quiz-fact" id="quiz-fact"></div>
+      <div class="quiz-question" id="quiz-question"></div>
+      <div class="quiz-choices" id="quiz-choices"></div>
+      <div class="quiz-feedback" id="quiz-feedback" style="display:none">
+        <span class="quiz-feedback-title" id="quiz-feedback-title"></span>
+        <span id="quiz-feedback-text"></span>
+      </div>
+    </div>
     <div class="desktop-add">
       <form class="d-form" id="form-desktop">
         <input type="text"  id="d-name"  class="f-input f-name" placeholder="Ավելացնել նոր առաջադրանք…" required>
@@ -542,6 +572,10 @@ function shiftDay(s, n) {
   const [y,m,d] = s.split('-').map(Number);
   return new Date(y,m-1,d+n).toISOString().split('T')[0];
 }
+function dayOfYear(dateStr) {
+  const [y,m,d] = dateStr.split('-').map(Number);
+  return Math.floor((Date.UTC(y,m-1,d) - Date.UTC(y,0,1)) / 86400000) + 1;
+}
 function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
 
@@ -569,6 +603,7 @@ const STRINGS = {
     tabBacklog:'Backlog',
     emptyBacklogTitle:'No backlog tasks', emptyBacklogSub:'Archived tasks will appear here',
     syncFail:'Sync failed', noSupabase:'Could not reach Supabase — using local data',
+    quizTitle:'Claude Feature of the Day', quizCorrect:'Correct!', quizIncorrect:"Not quite — here's why:",
   },
   am: {
     today:'Այսօր', tabTodo:'Կատարելու', tabDone:'Կատարված',
@@ -590,8 +625,284 @@ const STRINGS = {
     tabBacklog:'Հետաձgված',
     emptyBacklogTitle:'Հետաձgված առաջադրանքներ չկան', emptyBacklogSub:'Արխիվացված առաջադրանքները կհայտնվեն այստեղ',
     syncFail:'Համաժամացումը ձախողվեց', noSupabase:'Supabase-ին հնարավոր չէ հասնել',
+    quizTitle:'Claude-ի Օրվա Հատկությունը', quizCorrect:'Ճիշտ է!', quizIncorrect:'Ոչ ճիշտ — ահա թե ինչու.',
   }
 };
+
+// ── Daily Claude feature quiz content ───────────────────────────────────────
+// One entry shows per calendar day (cycles through the list). Add new entries
+// any time as Claude ships new features — no other code changes needed.
+const CLAUDE_QUIZ = [
+  { en: { fact: "Claude Code is Anthropic's official CLI tool that lets Claude read, edit, and run code directly in your terminal — turning it into an agentic coding partner instead of just a chat window.",
+          question: "Where does Claude Code primarily run?",
+          choices: ["In your terminal/CLI", "Only inside a web browser", "Only as a Chrome extension"], answerIndex: 0,
+          explanation: "Claude Code runs in your terminal (and now also on the web and in IDEs), giving Claude direct access to your files, shell, and git — not just a chat box." },
+    am: { fact: "Claude Code-ը Anthropic-ի պաշտոնական CLI գործիքն է, որը թույլ է տալիս Claude-ին ուղղակիորեն կարդալ, խմբագրել և գործարկել կոդ ձեր տերմինալում՝ այն վերածելով ագենտային ծրագրավորման գործընկերոջ՝ պարզապես չաթի փոխարեն։",
+          question: "Որտե՞ղ է հիմնականում աշխատում Claude Code-ը։",
+          choices: ["Ձեր տերմինալում/CLI-ում", "Միայն բրաուզերում", "Միայն որպես Chrome ընդլայնում"], answerIndex: 0,
+          explanation: "Claude Code-ն աշխատում է տերմինալում (այժմ նաև վեբում և IDE-ներում)՝ Claude-ին ուղղակի հասանելիություն տալով ձեր ֆայլերին, shell-ին և git-ին։" } },
+
+  { en: { fact: "Extended thinking lets Claude work through hard problems step-by-step before answering, visibly reasoning through the problem rather than jumping straight to a response.",
+          question: "What is extended thinking mainly useful for?",
+          choices: ["Complex, multi-step problems needing careful reasoning", "Making responses shorter", "Translating between languages"], answerIndex: 0,
+          explanation: "It trades extra 'thinking time' for better accuracy on math, coding, and multi-step logic problems." },
+    am: { fact: "Extended thinking-ը թույլ է տալիս Claude-ին քայլ առ քայլ մտածել բարդ խնդիրների շուրջ նախքան պատասխանելը՝ տեսանելիորեն դատողություն կատարելով, այլ ոչ թե ուղիղ պատասխան տալով։",
+          question: "Ինչի՞ համար է հիմնականում օգտակար extended thinking-ը։",
+          choices: ["Բարդ, բազմաքայլ խնդիրների, որոնք պահանջում են ուշադիր դատողություն", "Պատասխանները կարճացնելու համար", "Լեզուներ թարգմանելու համար"], answerIndex: 0,
+          explanation: "Այն փոխանակում է լրացուցիչ «մտածելու ժամանակ»՝ մաթեմատիկայի, ծրագրավորման և բազմաքայլ տրամաբանության ավելի բարձր ճշգրտության դիմաց։" } },
+
+  { en: { fact: "Artifacts let Claude generate standalone content — code, documents, websites, diagrams — that appears in its own panel next to the chat, so you can view, edit, and iterate on it separately from the conversation.",
+          question: "What kind of content can an Artifact be?",
+          choices: ["Only plain text notes", "Code, docs, websites, diagrams, and more", "Only spreadsheets"], answerIndex: 1,
+          explanation: "Artifacts support a wide range of content types, including interactive HTML/React apps, and can even be published and shared." },
+    am: { fact: "Artifacts-ը թույլ է տալիս Claude-ին ստեղծել ինքնուրույն բովանդակություն՝ կոդ, փաստաթղթեր, կայքեր, դիագրամներ, որոնք հայտնվում են առանձին վահանակում՝ չաթի կողքին, որպեսզի կարողանաք դիտել, խմբագրել և կրկին վերանայել դրանք առանձին։",
+          question: "Ի՞նչ տեսակի բովանդակություն կարող է լինել Artifact-ը։",
+          choices: ["Միայն պարզ տեքստային նշումներ", "Կոդ, փաստաթղթեր, կայքեր, դիագրամներ և ավելին", "Միայն աղյուսակներ"], answerIndex: 1,
+          explanation: "Artifacts-ն աջակցում է բովանդակության լայն շրջանակ, այդ թվում՝ ինտերակտիվ HTML/React հավելվածներ, և կարող է նաև հրապարակվել ու տարածվել։" } },
+
+  { en: { fact: "Projects give you a persistent workspace with custom instructions and uploaded knowledge/files, so Claude keeps consistent context across many conversations instead of starting fresh each time.",
+          question: "What's the main benefit of using a Project?",
+          choices: ["Faster typing speed", "Persistent context & instructions across conversations", "Automatic translation"], answerIndex: 1,
+          explanation: "Projects keep your files and custom instructions attached, so every new chat inside them starts already informed." },
+    am: { fact: "Projects-ը տալիս է մշտական աշխատանքային տարածք՝ հատուկ հրահանգներով և վերբեռնված գիտելիքով/ֆայլերով, որպեսզի Claude-ը պահպանի հետևողական համատեքստ բազմաթիվ խոսակցությունների ընթացքում՝ ամեն անգամ նորից չսկսելով։",
+          question: "Ո՞րն է Project-ի հիմնական առավելությունը։",
+          choices: ["Ավելի արագ մուտքագրում", "Մշտական համատեքստ և հրահանգներ խոսակցությունների միջև", "Ավտոմատ թարգմանություն"], answerIndex: 1,
+          explanation: "Project-երը պահպանում են ձեր ֆայլերն ու հատուկ հրահանգները կցված, այնպես որ ամեն նոր չաթ արդեն տեղեկացված է սկսվում։" } },
+
+  { en: { fact: "With computer use, Claude can look at screenshots of a screen and control the mouse and keyboard to operate software the way a person would.",
+          question: "Computer use lets Claude interact with software by...",
+          choices: ["Reading screenshots and controlling mouse/keyboard", "Only reading terminal output", "Only sending emails"], answerIndex: 0,
+          explanation: "This lets Claude automate tasks in regular desktop apps that don't have an API, by literally seeing and clicking." },
+    am: { fact: "Computer use-ի միջոցով Claude-ը կարող է դիտել էկրանի սքրինշոթներ և կառավարել մկնիկն ու ստեղնաշարը՝ ծրագրակազմն օգտագործելով այնպես, ինչպես մարդը կանի։",
+          question: "Computer use-ը թույլ է տալիս Claude-ին փոխազդել ծրագրերի հետ՝...",
+          choices: ["Կարդալով սքրինշոթներ և կառավարելով մկնիկ/ստեղնաշար", "Միայն կարդալով տերմինալի ելքը", "Միայն նամակներ ուղարկելով"], answerIndex: 0,
+          explanation: "Սա թույլ է տալիս Claude-ին ավտոմատացնել առաջադրանքներ սովորական դեսքթոփ հավելվածներում, որոնք API չունեն՝ բառացիորեն տեսնելով ու սեղմելով։" } },
+
+  { en: { fact: "The Model Context Protocol (MCP) is an open standard for connecting Claude to external tools, data sources, and services in a consistent way, instead of building one-off integrations for each.",
+          question: "What is MCP?",
+          choices: ["A new Claude model name", "An open standard for connecting AI to tools & data", "A pricing plan"], answerIndex: 1,
+          explanation: "MCP servers expose tools/resources that any MCP-compatible client, including Claude, can plug into." },
+    am: { fact: "Model Context Protocol-ը (MCP) բաց ստանդարտ է Claude-ը արտաքին գործիքների, տվյալների աղբյուրների և ծառայությունների հետ միասնական ձևով կապելու համար՝ փոխարենը յուրաքանչյուրի համար առանձին ինտեգրում կառուցելու։",
+          question: "Ի՞նչ է MCP-ն։",
+          choices: ["Claude-ի նոր մոդելի անուն", "Բաց ստանդարտ՝ AI-ն գործիքների ու տվյալների հետ կապելու համար", "Գնային պլան"], answerIndex: 1,
+          explanation: "MCP սերվերները տրամադրում են գործիքներ/ռեսուրսներ, որոնց կարող է միանալ ցանկացած MCP-համատեղելի client, այդ թվում՝ Claude-ը։" } },
+
+  { en: { fact: "Claude can see and reason about images — reading charts, diagrams, screenshots, and photos, not just text.",
+          question: "Besides text, what else can Claude directly understand?",
+          choices: ["Images like photos, charts, and screenshots", "Only audio", "Only video"], answerIndex: 0,
+          explanation: "Vision lets you paste in a screenshot or photo and ask Claude questions about it directly." },
+    am: { fact: "Claude-ը կարող է տեսնել և վերլուծել պատկերներ՝ կարդալով գրաֆիկներ, դիագրամներ, սքրինշոթներ և լուսանկարներ, ոչ միայն տեքստ։",
+          question: "Տեքստից բացի, էլ ի՞նչ կարող է ուղղակիորեն հասկանալ Claude-ը։",
+          choices: ["Պատկերներ՝ լուսանկարներ, գրաֆիկներ, սքրինշոթներ", "Միայն ձայն", "Միայն վիդեո"], answerIndex: 0,
+          explanation: "Vision-ը թույլ է տալիս տեղադրել սքրինշոթ կամ լուսանկար և ուղղակիորեն հարցեր տալ դրա մասին։" } },
+
+  { en: { fact: "Claude can read PDFs natively — including the text, layout, embedded images, and charts — not just extracted plain text.",
+          question: "When Claude reads a PDF, what does it understand?",
+          choices: ["Only the title", "Text, layout, images and charts together", "Nothing, PDFs aren't supported"], answerIndex: 1,
+          explanation: "This lets Claude answer questions about figures and tables inside a document, not just body text." },
+    am: { fact: "Claude-ը կարող է կարդալ PDF-ներ բնիկ ձևով՝ ներառյալ տեքստը, դասավորությունը, ներկառուցված պատկերները և գրաֆիկները, ոչ միայն արտահանված պարզ տեքստը։",
+          question: "Երբ Claude-ը կարդում է PDF, ի՞նչ է հասկանում։",
+          choices: ["Միայն վերնագիրը", "Տեքստ, դասավորություն, պատկերներ և գրաֆիկներ միասին", "Ոչինչ, PDF-ները չեն աջակցվում"], answerIndex: 1,
+          explanation: "Սա թույլ է տալիս Claude-ին պատասխանել փաստաթղթի ներսում գտնվող գծապատկերների ու աղյուսակների վերաբերյալ հարցերին, ոչ միայն տեքստի։" } },
+
+  { en: { fact: "Prompt caching lets you reuse large, repeated chunks of context (like a big codebase or document) across requests cheaply and quickly, instead of reprocessing it every time.",
+          question: "What problem does prompt caching solve?",
+          choices: ["Repeatedly reprocessing the same large context is slow & costly", "Claude forgetting its name", "Slow internet connections"], answerIndex: 0,
+          explanation: "Cached context is stored for a short window so follow-up requests skip re-reading it from scratch." },
+    am: { fact: "Prompt caching-ը թույլ է տալիս էժան ու արագ կրկին օգտագործել մեծ, կրկնվող համատեքստ (օրինակ՝ մեծ կոդաբազա կամ փաստաթուղթ) հարցումների միջև՝ փոխարենը ամեն անգամ նորից մշակելու։",
+          question: "Ի՞նչ խնդիր է լուծում prompt caching-ը։",
+          choices: ["Նույն մեծ համատեքստը կրկին ու կրկին մշակելը դանդաղ և թանկ է", "Claude-ը մոռանում է իր անունը", "Ինտերնետի դանդաղ կապը"], answerIndex: 0,
+          explanation: "Cache արված համատեքստը պահվում է կարճ ժամանակահատվածում, այնպես որ հաջորդ հարցումները բաց են թողնում այն նորից կարդալը։" } },
+
+  { en: { fact: "Tool use (function calling) lets Claude call external tools and APIs you define — like a calculator, database lookup, or your own backend — as part of forming its answer.",
+          question: "Tool use allows Claude to...",
+          choices: ["Call external functions/APIs you define", "Only use built-in Anthropic tools", "Change its own model weights"], answerIndex: 0,
+          explanation: "You describe a tool's inputs/outputs, and Claude decides when to call it and how to use the result." },
+    am: { fact: "Tool use-ը (function calling) թույլ է տալիս Claude-ին կանչել ձեր սահմանած արտաքին գործիքներ և API-ներ՝ օրինակ՝ հաշվիչ, տվյալների բազայի հարցում կամ ձեր սեփական backend-ը, պատասխանը կազմելիս։",
+          question: "Tool use-ը թույլ է տալիս Claude-ին՝...",
+          choices: ["Կանչել ձեր սահմանած արտաքին ֆունկցիաներ/API-ներ", "Օգտագործել միայն Anthropic-ի ներկառուցված գործիքները", "Փոխել իր սեփական մոդելի կշիռները"], answerIndex: 0,
+          explanation: "Դուք նկարագրում եք գործիքի մուտքերը/ելքերը, և Claude-ը որոշում է երբ կանչել այն և ինչպես օգտագործել արդյունքը։" } },
+
+  { en: { fact: "Claude can be added directly to a Slack workspace as a bot, so teams can ask it questions or hand it tasks right inside their channels and DMs.",
+          question: "Claude in Slack means Claude is available...",
+          choices: ["As a bot inside Slack channels & DMs", "Only via email", "Only on mobile"], answerIndex: 0,
+          explanation: "It's installed per workspace and can be mentioned in conversations like a teammate." },
+    am: { fact: "Claude-ը կարող է ուղղակիորեն ավելացվել Slack աշխատանքային տարածքին որպես bot, որպեսզի թիմերը կարողանան հարցեր տալ կամ առաջադրանքներ հանձնարարել ուղղակիորեն իրենց channel-ներում և DM-երում։",
+          question: "Claude-ը Slack-ում նշանակում է, որ Claude-ը հասանելի է՝...",
+          choices: ["Որպես bot Slack channel-ների և DM-երի ներսում", "Միայն email-ով", "Միայն մոբայլում"], answerIndex: 0,
+          explanation: "Այն տեղադրվում է workspace-ի համար և կարող է հիշատակվել խոսակցություններում՝ ինչպես թիմակից։" } },
+
+  { en: { fact: "In Claude Code, you can define subagents — specialized agents with their own tools and instructions — that the main agent delegates specific parts of a task to.",
+          question: "What is a subagent in Claude Code for?",
+          choices: ["Handling a specialized part of a task, delegated by the main agent", "Backing up your files", "Changing the terminal color theme"], answerIndex: 0,
+          explanation: "Subagents keep specialized work isolated with its own context, which keeps the main conversation focused." },
+    am: { fact: "Claude Code-ում կարող եք սահմանել subagent-ներ՝ մասնագիտացված ագենտներ իրենց սեփական գործիքներով ու հրահանգներով, որոնց հիմնական ագենտը հանձնարարում է առաջադրանքի կոնկրետ մասեր։",
+          question: "Ինչի՞ համար է subagent-ը Claude Code-ում։",
+          choices: ["Առաջադրանքի մասնագիտացված մասը կատարելու համար, հանձնարարված հիմնական ագենտի կողմից", "Ձեր ֆայլերը backup անելու համար", "Տերմինալի գույների թեման փոխելու համար"], answerIndex: 0,
+          explanation: "Subagent-ները մասնագիտացված աշխատանքը պահում են մեկուսացված՝ իրենց սեփական համատեքստով, ինչը հիմնական խոսակցությունը պահում է կենտրոնացած։" } },
+
+  { en: { fact: "Hooks in Claude Code let you run your own shell commands automatically at specific points, like before a tool runs or after Claude finishes responding.",
+          question: "Hooks in Claude Code are used to...",
+          choices: ["Run custom shell commands at specific lifecycle events", "Draw custom icons", "Speed up the model"], answerIndex: 0,
+          explanation: "For example, a hook could auto-run a linter every time Claude edits a file." },
+    am: { fact: "Claude Code-ի hooks-ը թույլ են տալիս ավտոմատ կերպով գործարկել ձեր սեփական shell հրամանները կոնկրետ պահերին՝ օրինակ՝ գործիք գործարկելուց առաջ կամ Claude-ի պատասխանից հետո։",
+          question: "Hooks-ը Claude Code-ում օգտագործվում են՝...",
+          choices: ["Կոնկրետ պահերին ձեր սեփական shell հրամանները գործարկելու համար", "Հատուկ icon-ներ նկարելու համար", "Մոդելը արագացնելու համար"], answerIndex: 0,
+          explanation: "Օրինակ՝ hook-ը կարող է ավտոմատ գործարկել linter ամեն անգամ, երբ Claude-ը խմբագրում է ֆայլ։" } },
+
+  { en: { fact: "You can create your own slash commands (like /deploy or /review) in Claude Code that package up a repeated prompt or workflow into one word.",
+          question: "A custom slash command is best described as...",
+          choices: ["A saved, reusable prompt/workflow triggered by typing '/name'", "A way to rename files", "A Slack-only feature"], answerIndex: 0,
+          explanation: "They save you from retyping the same long instructions for common tasks." },
+    am: { fact: "Կարող եք ստեղծել ձեր սեփական slash command-ները (օրինակ՝ /deploy կամ /review) Claude Code-ում, որոնք կրկնվող prompt կամ աշխատանքային հոսք փաթեթավորում են մեկ բառի մեջ։",
+          question: "Ինչպե՞ս լավագույնս նկարագրել custom slash command-ը։",
+          choices: ["Պահված, կրկին օգտագործվող prompt/աշխատանքային հոսք, որը գործարկվում է '/name' մուտքագրելով", "Ֆայլերի անունափոխման եղանակ", "Միայն Slack-ի հատկություն"], answerIndex: 0,
+          explanation: "Դրանք խնայում են նույն երկար հրահանգները կրկին ու կրկին մուտքագրելը սովորական առաջադրանքների համար։" } },
+
+  { en: { fact: "Claude can be given a web search tool so it can look up current information beyond its training data when answering a question.",
+          question: "Why would Claude use a web search tool?",
+          choices: ["To find current/up-to-date information", "To save conversation history", "To translate text"], answerIndex: 0,
+          explanation: "This helps with anything time-sensitive, like recent news or documentation changes." },
+    am: { fact: "Claude-ին կարելի է տալ web search գործիք, որպեսզի հարցին պատասխանելիս կարողանա փնտրել ընթացիկ տեղեկատվություն՝ իր ուսուցման տվյալներից դուրս։",
+          question: "Ինչու՞ Claude-ը կօգտագործի web search գործիք։",
+          choices: ["Ընթացիկ/արդիական տեղեկատվություն գտնելու համար", "Խոսակցության պատմությունը պահելու համար", "Տեքստ թարգմանելու համար"], answerIndex: 0,
+          explanation: "Սա օգնում է ցանկացած ժամանակավոր բանի հետ, օրինակ՝ վերջին նորությունների կամ փաստաթղթերի փոփոխությունների։" } },
+
+  { en: { fact: "Claude can be given a code execution or bash tool, letting it actually run code or shell commands and use the real output to inform its next step.",
+          question: "A code execution tool lets Claude...",
+          choices: ["Actually run code/commands and see the real results", "Only describe what code would do", "Only write code, never run it"], answerIndex: 0,
+          explanation: "This turns Claude from a code writer into something that can test and verify its own work." },
+    am: { fact: "Claude-ին կարելի է տալ code execution կամ bash գործիք, որը թույլ է տալիս իրականում գործարկել կոդ կամ shell հրամաններ և իրական արդյունքն օգտագործել հաջորդ քայլը որոշելու համար։",
+          question: "Code execution գործիքը թույլ է տալիս Claude-ին՝...",
+          choices: ["Իրականում գործարկել կոդ/հրամաններ և տեսնել իրական արդյունքները", "Միայն նկարագրել, թե ինչ կանի կոդը", "Միայն գրել կոդ, երբեք չգործարկել"], answerIndex: 0,
+          explanation: "Սա Claude-ը կոդ գրողից վերածում է մի բանի, որը կարող է թեստավորել և ստուգել իր սեփական աշխատանքը։" } },
+
+  { en: { fact: "Citations let Claude point to the exact sentence or section of a source document that backs up a specific claim in its answer.",
+          question: "What do citations add to an answer?",
+          choices: ["Exact links back to the source text for each claim", "Extra emojis", "Faster response time"], answerIndex: 0,
+          explanation: "This makes it easy to verify exactly where in a document a fact came from." },
+    am: { fact: "Citations-ը թույլ է տալիս Claude-ին ցույց տալ ճշգրիտ նախադասությունը կամ բաժինը սկզբնաղբյուր փաստաթղթից, որը հիմնավորում է պատասխանում կատարված կոնկրետ պնդումը։",
+          question: "Ի՞նչ են ավելացնում citations-ը պատասխանին։",
+          choices: ["Ճշգրիտ հղումներ սկզբնաղբյուր տեքստին յուրաքանչյուր պնդման համար", "Լրացուցիչ emoji-ներ", "Ավելի արագ պատասխան"], answerIndex: 0,
+          explanation: "Սա հեշտացնում է ստուգել, թե ուղիղ որտեղից է վերցված փաստը փաստաթղթում։" } },
+
+  { en: { fact: "The Files API lets you upload a file once and reference it across many separate API requests, instead of re-uploading it every time.",
+          question: "What does the Files API save you from doing?",
+          choices: ["Re-uploading the same file on every request", "Writing your own prompts", "Choosing a model"], answerIndex: 0,
+          explanation: "You upload once, get an ID, and reuse that ID in future requests." },
+    am: { fact: "Files API-ն թույլ է տալիս մեկ անգամ վերբեռնել ֆայլ և հղում կատարել դրան բազմաթիվ առանձին API հարցումներում՝ փոխարենը ամեն անգամ նորից վերբեռնելու։",
+          question: "Ինչի՞ց է փրկում Files API-ն ձեզ։",
+          choices: ["Նույն ֆայլը ամեն հարցումով նորից վերբեռնելուց", "Ձեր սեփական prompt-երը գրելուց", "Մոդել ընտրելուց"], answerIndex: 0,
+          explanation: "Դուք վերբեռնում եք մեկ անգամ, ստանում ID, և կրկին օգտագործում այդ ID-ն հետագա հարցումներում։" } },
+
+  { en: { fact: "The Message Batches API lets you submit a large number of requests together to be processed asynchronously, at a lower cost than real-time requests.",
+          question: "Batches are best suited for...",
+          choices: ["Large volumes of non-urgent requests processed together", "A single urgent live chat message", "Deleting old conversations"], answerIndex: 0,
+          explanation: "You trade immediate responses for cost savings and higher throughput on bulk work." },
+    am: { fact: "Message Batches API-ն թույլ է տալիս ներկայացնել մեծ քանակությամբ հարցումներ միասին՝ ասինքրոն մշակելու համար, ավելի ցածր գնով, քան real-time հարցումները։",
+          question: "Batches-ը լավագույնս հարմար են՝...",
+          choices: ["Մեծ ծավալի, ոչ շտապ հարցումների միասին մշակման համար", "Մեկ շտապ live չաթ հաղորդագրության համար", "Հին խոսակցություններ ջնջելու համար"], answerIndex: 0,
+          explanation: "Դուք փոխանակում եք անմիջական պատասխանը ծախսերի խնայողության և ավելի բարձր throughput-ի հետ մեծածավալ աշխատանքի համար։" } },
+
+  { en: { fact: "The Claude Agent SDK exposes the same underlying framework that powers Claude Code, so developers can build their own custom autonomous agents.",
+          question: "The Claude Agent SDK is used to...",
+          choices: ["Build your own custom agents using Claude Code's underlying framework", "Design app icons", "Only fine-tune models"], answerIndex: 0,
+          explanation: "It gives you programmatic access to the agent loop, tools, and permissions system behind Claude Code." },
+    am: { fact: "Claude Agent SDK-ն բացահայտում է նույն հիմքային framework-ը, որը սնուցում է Claude Code-ը, որպեսզի ծրագրավորողները կարողանան կառուցել իրենց սեփական ինքնավար ագենտները։",
+          question: "Claude Agent SDK-ն օգտագործվում է՝...",
+          choices: ["Ձեր սեփական ագենտները կառուցելու համար՝ օգտագործելով Claude Code-ի հիմքային framework-ը", "Հավելվածի icon-ներ ձևավորելու համար", "Միայն մոդելները fine-tune անելու համար"], answerIndex: 0,
+          explanation: "Այն տալիս է ծրագրային հասանելիություն ագենտի loop-ին, գործիքներին և թույլտվությունների համակարգին, որոնք կանգնած են Claude Code-ի հետևում։" } },
+
+  { en: { fact: "Claude can be asked to reliably return structured data, like well-formed JSON matching a schema you specify, instead of free-form prose.",
+          question: "Structured outputs are useful when you need...",
+          choices: ["Reliable, machine-readable formatted data", "More casual conversational tone", "Longer answers"], answerIndex: 0,
+          explanation: "This makes it easy to feed Claude's answer directly into other software." },
+    am: { fact: "Claude-ից կարելի է խնդրել վստահելիորեն վերադարձնել կառուցվածքային տվյալներ, օրինակ՝ ճիշտ ձևավորված JSON՝ ձեր նշած սխեմային համապատասխան, ազատ ձևի արձագանքի փոխարեն։",
+          question: "Structured outputs-ը օգտակար են, երբ ձեզ պետք է՝...",
+          choices: ["Հուսալի, մեքենայաընթեռնելի ձևաչափված տվյալներ", "Ավելի ոչ ֆորմալ խոսակցական տոն", "Ավելի երկար պատասխաններ"], answerIndex: 0,
+          explanation: "Սա հեշտացնում է Claude-ի պատասխանն ուղղակիորեն մատուցել այլ ծրագրերի։" } },
+
+  { en: { fact: "A system prompt lets you set persistent instructions — like a persona, tone, or constraints — that shape every response in a conversation, separate from the user's messages.",
+          question: "A system prompt is used to...",
+          choices: ["Set persistent behavior/instructions for the whole conversation", "Ask a one-off question", "Delete chat history"], answerIndex: 0,
+          explanation: "It stays 'in effect' for the whole session rather than being just one message among many." },
+    am: { fact: "System prompt-ը թույլ է տալիս սահմանել մշտական հրահանգներ՝ persona, տոն կամ սահմանափակումներ, որոնք ձևավորում են խոսակցության յուրաքանչյուր պատասխանը՝ առանձին օգտատիրոջ հաղորդագրություններից։",
+          question: "System prompt-ը օգտագործվում է՝...",
+          choices: ["Ամբողջ խոսակցության համար մշտական վարքագիծ/հրահանգներ սահմանելու համար", "Մեկանգամյա հարց տալու համար", "Չաթի պատմությունը ջնջելու համար"], answerIndex: 0,
+          explanation: "Այն մնում է «ուժի մեջ» ամբողջ սեսիայի ընթացքում, այլ ոչ թե պարզապես մեկ հաղորդագրություն շատերից։" } },
+
+  { en: { fact: "Claude Code can run multiple subagents in parallel on independent parts of a task, then bring the results back together — instead of doing everything strictly one step at a time.",
+          question: "Running subagents in parallel mainly helps with...",
+          choices: ["Speeding up independent pieces of a larger task", "Making Claude forget context", "Reducing accuracy on purpose"], answerIndex: 0,
+          explanation: "Independent research or subtasks can happen simultaneously instead of sequentially." },
+    am: { fact: "Claude Code-ը կարող է միաժամանակ գործարկել մի քանի subagent-ներ առաջադրանքի անկախ մասերի վրա, ապա միավորել արդյունքները՝ փոխարենը ամեն ինչ խստորեն մեկ առ մեկ անելու։",
+          question: "Subagent-ները զուգահեռ գործարկելը հիմնականում օգնում է՝...",
+          choices: ["Արագացնել ավելի մեծ առաջադրանքի անկախ մասերը", "Claude-ին ստիպել մոռանալ համատեքստը", "Դիտավորյալ նվազեցնել ճշգրտությունը"], answerIndex: 0,
+          explanation: "Անկախ հետազոտություններ կամ ենթաառաջադրանքներ կարող են կատարվել միաժամանակ՝ հաջորդական լինելու փոխարեն։" } },
+
+  { en: { fact: "Claude Code isn't limited to your local terminal — it can also run in a hosted cloud environment you access from a browser, so you can kick off coding sessions from anywhere.",
+          question: "Claude Code on the web lets you...",
+          choices: ["Run coding sessions in a browser-hosted environment", "Only view code, never edit it", "Only work offline"], answerIndex: 0,
+          explanation: "This is handy for starting or checking on tasks from a phone or a machine without your dev setup." },
+    am: { fact: "Claude Code-ը սահմանափակված չէ ձեր տեղական տերմինալով. այն կարող է նաև աշխատել cloud միջավայրում, որին կարող եք հասնել բրաուզերից, որպեսզի կարողանաք սկսել ծրագրավորման սեսիաներ ցանկացած վայրից։",
+          question: "Claude Code-ը վեբում թույլ է տալիս՝...",
+          choices: ["Գործարկել ծրագրավորման սեսիաներ բրաուզերում հյուրընկալվող միջավայրում", "Միայն դիտել կոդը, երբեք չխմբագրել", "Աշխատել միայն offline"], answerIndex: 0,
+          explanation: "Սա հարմար է առաջադրանքներ սկսելու կամ ստուգելու համար հեռախոսից կամ dev միջավայր չունեցող համակարգչից։" } },
+
+  { en: { fact: "Claude Code has official integrations for editors like VS Code and JetBrains IDEs, so you can work with Claude right next to your code instead of switching to a separate terminal window.",
+          question: "IDE integrations let you use Claude Code...",
+          choices: ["Directly inside editors like VS Code / JetBrains", "Only inside a spreadsheet", "Only through email"], answerIndex: 0,
+          explanation: "Changes and diffs can show up right in your normal editing environment." },
+    am: { fact: "Claude Code-ն ունի պաշտոնական ինտեգրումներ խմբագրիչների հետ, ինչպիսիք են VS Code-ը և JetBrains IDE-ները, որպեսզի կարողանաք աշխատել Claude-ի հետ ուղիղ ձեր կոդի կողքին՝ առանձին տերմինալի պատուհան չբացելով։",
+          question: "IDE ինտեգրումները թույլ են տալիս օգտագործել Claude Code-ը՝...",
+          choices: ["Ուղիղ խմբագրիչների ներսում, ինչպիսիք են VS Code / JetBrains", "Միայն աղյուսակի ներսում", "Միայն email-ով"], answerIndex: 0,
+          explanation: "Փոփոխություններն ու diff-երը կարող են հայտնվել ուղիղ ձեր սովորական խմբագրման միջավայրում։" } },
+
+  { en: { fact: "Plan mode in Claude Code has Claude propose a plan and get your approval before making any actual changes to your files — useful for reviewing intent before execution.",
+          question: "What does Plan mode do?",
+          choices: ["Shows a proposed plan for approval before changes are made", "Automatically deploys your code", "Disables all tools"], answerIndex: 0,
+          explanation: "It's a safety checkpoint for bigger or riskier changes." },
+    am: { fact: "Claude Code-ի Plan mode-ը ստիպում է Claude-ին առաջարկել պլան և ստանալ ձեր հաստատումը՝ նախքան ձեր ֆայլերում որևէ իրական փոփոխություն կատարելը. օգտակար է մտադրությունը կատարումից առաջ վերանայելու համար։",
+          question: "Ի՞նչ է անում Plan mode-ը։",
+          choices: ["Ցույց է տալիս առաջարկվող պլան հաստատման համար՝ նախքան փոփոխությունները", "Ավտոմատ deploy է անում ձեր կոդը", "Անջատում է բոլոր գործիքները"], answerIndex: 0,
+          explanation: "Այն անվտանգության ստուգակետ է ավելի մեծ կամ ռիսկային փոփոխությունների համար։" } },
+
+  { en: { fact: "Skills are packaged sets of instructions for a particular kind of task — like a repo-specific workflow or a review checklist — that Claude can invoke by name instead of you re-explaining the process every time.",
+          question: "A Skill is best described as...",
+          choices: ["A reusable, packaged workflow/instruction set Claude can invoke", "A new Claude model", "A browser plugin only"], answerIndex: 0,
+          explanation: "Skills package know-how so it doesn't need to be re-explained in every conversation." },
+    am: { fact: "Skills-ը փաթեթավորված հրահանգների հավաքածուներ են կոնկրետ տեսակի առաջադրանքի համար՝ օրինակ՝ repository-ի հատուկ աշխատանքային հոսք կամ վերանայման ստուգաթերթ, որոնք Claude-ը կարող է կանչել անունով՝ փոխարենը դուք ամեն անգամ նոր բացատրելու գործընթացը։",
+          question: "Ինչպե՞ս լավագույնս նկարագրել Skill-ը։",
+          choices: ["Կրկին օգտագործվող, փաթեթավորված աշխատանքային հոսք/հրահանգների հավաքածու, որը Claude-ը կարող է կանչել", "Claude-ի նոր մոդել", "Միայն բրաուզերի plugin"], answerIndex: 0,
+          explanation: "Skills-ը փաթեթավորում են գիտելիքը, որպեսզի այն կարիք չլինի նորից բացատրելու ամեն խոսակցությունում։" } },
+
+  { en: { fact: "You can schedule recurring or one-time triggers — 'Routines' — that wake a Claude session automatically at a given time or on a cron schedule, without you having to be present.",
+          question: "A Routine / scheduled trigger is used to...",
+          choices: ["Automatically run a task on a schedule, without you starting it", "Speed up model responses", "Change the UI theme"], answerIndex: 0,
+          explanation: "Handy for recurring checks, reminders, or automated reports." },
+    am: { fact: "Կարող եք ծրագրավորել կրկնվող կամ մեկանգամյա trigger-ներ՝ «Routines», որոնք ավտոմատ արթնացնում են Claude սեսիան նշված ժամանակին կամ cron ժամանակացույցով՝ առանց ձեզ ներկա լինելու։",
+          question: "Routine/scheduled trigger-ը օգտագործվում է՝...",
+          choices: ["Ավտոմատ կերպով ժամանակացույցով առաջադրանք գործարկելու համար, առանց ձեր մեկնարկի", "Մոդելի պատասխանները արագացնելու համար", "UI թեման փոխելու համար"], answerIndex: 0,
+          explanation: "Հարմար է կրկնվող ստուգումների, հիշեցումների կամ ավտոմատացված հաշվետվությունների համար։" } },
+
+  { en: { fact: "Claude Cowork provides a workspace where Claude can be set up per role or team function, with matching tools/plugins, to collaborate on ongoing work rather than one-off chats.",
+          question: "Cowork is designed around...",
+          choices: ["Role-based, ongoing collaborative work with Claude", "One-time image generation", "Only customer support tickets"], answerIndex: 0,
+          explanation: "It tailors Claude's setup (plugins, permissions) to how a specific role actually works." },
+    am: { fact: "Claude Cowork-ը տրամադրում է աշխատանքային տարածք, որտեղ Claude-ը կարող է կարգավորվել ըստ դերի կամ թիմային ֆունկցիայի՝ համապատասխան գործիքներով/plugin-ներով, շարունակական աշխատանքի վրա համագործակցելու համար՝ ոչ միայն մեկանգամյա չաթերի։",
+          question: "Cowork-ը կառուցված է՝...",
+          choices: ["Դերի վրա հիմնված, շարունակական համագործակցային աշխատանքի շուրջ Claude-ի հետ", "Մեկանգամյա պատկերի ստեղծման համար", "Միայն հաճախորդների աջակցության տոմսերի համար"], answerIndex: 0,
+          explanation: "Այն հարմարեցնում է Claude-ի կարգավորումը (plugin-ներ, թույլտվություններ) կոնկրետ դերի իրական աշխատանքին։" } },
+
+  { en: { fact: "Some Artifacts can go beyond static content — they can be published as pages that stay live, read fresh data, or keep state shared between viewers, not just a fixed snapshot.",
+          question: "A 'live' or capability-enabled Artifact can...",
+          choices: ["Update itself, read live data, or share state between viewers", "Only display static images", "Only run once and then delete itself"], answerIndex: 0,
+          explanation: "This turns an Artifact from a one-time output into something closer to a small live app." },
+    am: { fact: "Որոշ Artifacts-ներ կարող են ավելին անել, քան ստատիկ բովանդակությունը. դրանք կարող են հրապարակվել որպես էջեր, որոնք մնում են live, կարդում են թարմ տվյալներ, կամ պահպանում են ընդհանուր վիճակ դիտողների միջև՝ ոչ միայն ֆիքսված snapshot։",
+          question: "«Live» կամ հնարավորություններով Artifact-ը կարող է՝...",
+          choices: ["Ինքն իրեն թարմացնել, կարդալ live տվյալներ, կամ կիսվել վիճակով դիտողների միջև", "Միայն ցուցադրել ստատիկ պատկերներ", "Միայն մեկ անգամ աշխատել և ապա ինքն իրեն ջնջել"], answerIndex: 0,
+          explanation: "Սա Artifact-ը մեկանգամյա արդյունքից վերածում է ինչ-որ բանի, որը մոտ է փոքր live հավելվածի։" } },
+];
 
 let lang = localStorage.getItem('dtodo_lang') || 'am';
 
@@ -693,6 +1004,14 @@ function showToast(msg) {
 // ── Persistence ───────────────────────────────────────────────────────────────
 function saveLocal() { try { localStorage.setItem(SKEY, JSON.stringify(tasks)); } catch {} }
 function loadLocal() { try { tasks = JSON.parse(localStorage.getItem(SKEY)||'[]'); } catch { tasks=[]; } }
+
+const QKEY = 'dtodo_quiz_v1';
+function loadQuizAnswers() { try { return JSON.parse(localStorage.getItem(QKEY)||'{}'); } catch { return {}; } }
+function saveQuizAnswer(dateStr, idx) {
+  const m = loadQuizAnswers();
+  m[dateStr] = idx;
+  try { localStorage.setItem(QKEY, JSON.stringify(m)); } catch {}
+}
 
 async function load() {
   if (USE_SB) {
@@ -942,9 +1261,55 @@ function backlogItemHtml(t) {
   </li>`;
 }
 
+// ── Daily quiz ────────────────────────────────────────────────────────────────
+function renderQuiz() {
+  const card = document.getElementById('quiz-card');
+  const today = todayStr();
+  if (selDate !== today) { card.style.display = 'none'; return; }
+  card.style.display = '';
+
+  const idx = dayOfYear(today) % CLAUDE_QUIZ.length;
+  const entry = CLAUDE_QUIZ[idx][lang];
+  const answeredIdx = loadQuizAnswers()[today];
+
+  document.getElementById('quiz-title-txt').textContent = s().quizTitle;
+  document.getElementById('quiz-fact').textContent = entry.fact;
+  document.getElementById('quiz-question').textContent = entry.question;
+
+  document.getElementById('quiz-choices').innerHTML = entry.choices.map((c, i) => {
+    let cls = 'quiz-choice';
+    if (answeredIdx !== undefined) {
+      if (i === entry.answerIndex) cls += ' correct';
+      else if (i === answeredIdx) cls += ' incorrect';
+    }
+    return `<button type="button" class="${cls}" data-idx="${i}" ${answeredIdx !== undefined ? 'disabled' : ''}>${esc(c)}</button>`;
+  }).join('');
+
+  const fb = document.getElementById('quiz-feedback');
+  if (answeredIdx !== undefined) {
+    const correct = answeredIdx === entry.answerIndex;
+    fb.style.display = '';
+    const title = document.getElementById('quiz-feedback-title');
+    title.textContent = correct ? s().quizCorrect : s().quizIncorrect;
+    title.className = 'quiz-feedback-title ' + (correct ? 'ok' : 'no');
+    document.getElementById('quiz-feedback-text').textContent = entry.explanation;
+  } else {
+    fb.style.display = 'none';
+  }
+}
+
+document.getElementById('quiz-choices').addEventListener('click', e => {
+  const btn = e.target.closest('.quiz-choice');
+  if (!btn || btn.disabled) return;
+  saveQuizAnswer(todayStr(), Number(btn.dataset.idx));
+  renderQuiz();
+});
+
 // ── Render ────────────────────────────────────────────────────────────────────
 function render() {
   const today = todayStr();
+
+  renderQuiz();
 
   // Header date
   document.getElementById('date-wd').textContent   = fmtWd(selDate);
